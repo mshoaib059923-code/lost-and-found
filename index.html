@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>School Lost & Found Identifier</title>
+    <title>School Lost & Found AI</title>
     <style>
         body { font-family: Arial, sans-serif; padding: 15px; background: #f4f7f6; max-width: 500px; margin: auto; }
         h2 { color: #2c3e50; text-align: center; }
@@ -12,15 +12,16 @@
         button { background: #27ae60; color: white; border: none; font-weight: bold; cursor: pointer; }
         button:hover { background: #219150; }
         .result-box { background: #eef9f1; border-left: 5px solid #27ae60; padding: 10px; font-weight: bold; white-space: pre-wrap; }
-        img { width: 100%; max-height: 250px; object-fit: contain; border-radius: 5px; margin-top: 10px; display: none; }
-        ul { padding-left: 20px; }
+        img { width: 100%; max-height: 200px; object-fit: contain; border-radius: 5px; margin-top: 10px; display: none; }
+        .item-row { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #eee; padding: 8px 0; }
+        .item-img { width: 40px; height: 40px; border-radius: 5px; object-fit: cover; margin-right: 10px; display: block; }
     </style>
 </head>
 <body>
 
     <h2>🎒 School Lost & Found AI</h2>
 
-    <!-- API Key Section (Saved Permanently) -->
+    <!-- API Key Section -->
     <div class="card">
         <label><b>Gemini API Key:</b></label>
         <input type="password" id="apiKey" placeholder="Apni Gemini API Key daalein">
@@ -28,40 +29,44 @@
         <small id="keyStatus" style="color: #27ae60; font-weight: bold; display: block; margin-top: 5px;"></small>
     </div>
 
-    <!-- Register Item Section -->
+    <!-- Register Item With Photo Section -->
     <div class="card">
-        <h3>1. Bache & Samaan Ka Detail Save Karein</h3>
+        <h3>1. Bache Ka Detail & Reference Photo Save Karein</h3>
         <input type="text" id="kidName" placeholder="Bache ka Naam (e.g. Tashvaib)">
-        <input type="text" id="itemDesc" placeholder="Samaan ke baare me (e.g. Red Milton Bottle)">
-        <button onclick="registerItem()">Save Item</button>
-        <h4>Saved Items List:</h4>
-        <ul id="itemList"></ul>
+        <input type="text" id="itemDesc" placeholder="Samaan (e.g. Red Milton Bottle)">
+        <label style="font-size: 13px; font-weight: bold; color: #555;">Reference Photo Lijiye:</label>
+        <input type="file" id="regImageInput" accept="image/*" capture="environment" onchange="previewRegImage(event)">
+        <img id="regPreview" alt="Reference Image Preview">
+        <button onclick="registerItemWithPhoto()">💾 Save Details & Photo</button>
+        
+        <h4>Saved Database:</h4>
+        <div id="itemList"></div>
     </div>
 
     <!-- Identify Item Section -->
     <div class="card">
-        <h3>2. Photo Leke Pehchano</h3>
+        <h3>2. Bhool Jane Par Photo Leke Check Karein</h3>
         <input type="file" id="imageInput" accept="image/*" capture="environment" onchange="previewImage(event)">
-        <img id="preview" alt="Preview Image">
-        <button onclick="identifyItem()" style="background: #2980b9; margin-top: 10px;">🔍 AI Se Check Karein</button>
+        <img id="preview" alt="Scan Image Preview">
+        <button onclick="identifyItem()" style="background: #2980b9; margin-top: 10px;">🔍 AI Se Match Karein</button>
         <div id="status" style="margin-top: 10px; color: #7f8c8d;"></div>
     </div>
 
     <!-- Result Display -->
     <div class="card" id="resultCard" style="display:none;">
-        <h3>AI Ka Jawab:</h3>
+        <h3>AI Ka Response:</h3>
         <div class="result-box" id="resultText"></div>
     </div>
 
 <script>
-    let db = JSON.parse(localStorage.getItem('studentDb')) || [];
+    let db = JSON.parse(localStorage.getItem('studentDbWithImages')) || [];
+    let currentRegBase64 = "";
 
-    // Load Saved API Key & Database on Startup
     window.onload = function() {
         const savedKey = localStorage.getItem('geminiApiKey');
         if (savedKey) {
             document.getElementById('apiKey').value = savedKey;
-            document.getElementById('keyStatus').innerText = '✔ API Key Saved & Ready!';
+            document.getElementById('keyStatus').innerText = '✔ API Key Ready!';
         }
         updateList();
     };
@@ -72,8 +77,35 @@
             localStorage.setItem('geminiApiKey', key);
             document.getElementById('keyStatus').innerText = '✔ API Key Saved Permanently!';
             alert('API Key Save Ho Gayi!');
+        }
+    }
+
+    function previewRegImage(event) {
+        const reader = new FileReader();
+        reader.onload = function(){
+            const output = document.getElementById('regPreview');
+            output.src = reader.result;
+            output.style.display = 'block';
+            currentRegBase64 = reader.result.split(',')[1];
+        };
+        if(event.target.files[0]) {
+            reader.readAsDataURL(event.target.files[0]);
+        }
+    }
+
+    function registerItemWithPhoto() {
+        const name = document.getElementById('kidName').value.trim();
+        const desc = document.getElementById('itemDesc').value.trim();
+        if(name && desc && currentRegBase64) {
+            db.push({ name, desc, image: currentRegBase64 });
+            updateList();
+            document.getElementById('kidName').value = '';
+            document.getElementById('itemDesc').value = '';
+            document.getElementById('regPreview').style.display = 'none';
+            currentRegBase64 = "";
+            alert('Bache ka naam aur photo save ho gaya!');
         } else {
-            alert('Kripya API Key Bharein!');
+            alert('Kripya bache ka naam, item ka naam AUR reference photo teeno daalein!');
         }
     }
 
@@ -81,23 +113,14 @@
         const list = document.getElementById('itemList');
         list.innerHTML = '';
         db.forEach((item, index) => {
-            list.innerHTML += `<li><b>${item.name}</b>: ${item.desc} <button style="width:auto; padding:2px 6px; background:#e74c3c;" onclick="deleteItem(${index})">X</button></li>`;
+            list.innerHTML += `
+                <div class="item-row">
+                    <img src="data:image/jpeg;base64,${item.image}" class="item-img">
+                    <div style="flex-grow:1;"><b>${item.name}</b><br><small>${item.desc}</small></div>
+                    <button style="width:auto; padding:3px 8px; background:#e74c3c;" onclick="deleteItem(${index})">X</button>
+                </div>`;
         });
-        localStorage.setItem('studentDb', JSON.stringify(db));
-    }
-
-    function registerItem() {
-        const name = document.getElementById('kidName').value.trim();
-        const desc = document.getElementById('itemDesc').value.trim();
-        if(name && desc) {
-            db.push({ name, desc });
-            updateList();
-            document.getElementById('kidName').value = '';
-            document.getElementById('itemDesc').value = '';
-            alert('Item Save Ho Gaya!');
-        } else {
-            alert('Dono fields bharein!');
-        }
+        localStorage.setItem('studentDbWithImages', JSON.stringify(db));
     }
 
     function deleteItem(index) {
@@ -129,36 +152,39 @@
             return;
         }
         if (fileInput.files.length === 0) {
-            alert('Pehle Photo Click Karein!');
+            alert('Pehle Check Karne Ke Liye Photo Lijiye!');
+            return;
+        }
+        if (db.length === 0) {
+            alert('Pehle Kam Se Kam Ek Bache Ki Detail Aur Photo Save Karein!');
             return;
         }
 
-        status.innerText = 'AI Check Kar Raha Hai...';
+        status.innerText = 'AI reference photos se match kar raha hai... Please wait...';
         resultCard.style.display = 'none';
 
         const file = fileInput.files[0];
         const reader = new FileReader();
         
         reader.onloadend = async function () {
-            const base64Image = reader.result.split(',')[1];
-            const contextList = db.map(i => `- ${i.name}: ${i.desc}`).join('\n');
-            const promptText = `Analyze this image of a school item.
-Registered students & items:
-${contextList || "No registered list provided."}
+            const queryBase64 = reader.result.split(',')[1];
 
-Task:
-1. Describe the item in the photo.
-2. State clearly whose item this is based on registered list.
-3. Keep response in simple Hindi/Hinglish.`;
+            // Build Multimodal Parts (Saved Reference Photos + New Query Photo)
+            let parts = [];
+            
+            parts.push({ text: "You are a school lost & found assistant. Compare the LAST image provided (the found lost item) against the PREVIOUS saved reference images of students' items." });
 
-            const payload = {
-                contents: [{
-                    parts: [
-                        { text: promptText },
-                        { inline_data: { mime_type: file.type, data: base64Image } }
-                    ]
-                }]
-            };
+            db.forEach((item, index) => {
+                parts.push({ text: `Reference Item #${index + 1} - Belonging to Student: "${item.name}" (Description: ${item.desc})` });
+                parts.push({ inline_data: { mime_type: "image/jpeg", data: item.image } });
+            });
+
+            parts.push({ text: "Here is the NEW found lost item image that needs to be identified:" });
+            parts.push({ inline_data: { mime_type: file.type, data: queryBase64 } });
+
+            parts.push({ text: "Task:\n1. Look at the new found item image.\n2. Compare its color, shape, pattern, logo, and design visually with the reference images above.\n3. State clearly whose item this is and explain why (visual similarities).\n4. Reply in simple Hindi/Hinglish." });
+
+            const payload = { contents: [{ parts: parts }] };
 
             try {
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
@@ -174,7 +200,7 @@ Task:
                     resultText.innerText = data.candidates[0].content.parts[0].text;
                     resultCard.style.display = 'block';
                 } else {
-                    resultText.innerText = 'Pehchanne me samasya hui. Dubara try karein.';
+                    resultText.innerText = 'Pehchanne me samasya hui. Kripya dobara try karein.';
                     resultCard.style.display = 'block';
                 }
             } catch (err) {
