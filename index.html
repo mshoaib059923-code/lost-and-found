@@ -207,8 +207,8 @@
 
         const payload = { contents: [{ parts: parts }] };
 
-        // Primary Endpoint: gemini-2.5-flash
-        let apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        // Primary Endpoint: gemini-3.8-flash
+        let apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
         try {
             let response = await fetch(apiUrl, {
@@ -219,7 +219,7 @@
 
             let data = await response.json();
 
-            // Fallback if 2.5 endpoint gives error
+            // Fallback to gemini-1.5-flash if needed
             if (data.error) {
                 const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
                 response = await fetch(fallbackUrl, {
